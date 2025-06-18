@@ -4,9 +4,24 @@ import OpenAI from 'openai';
 import 'dotenv/config';
 import axios from 'axios';
 import { JSDOM } from 'jsdom';
+import cors from 'cors';
 
 const app = express();
+
+// Enable CORS with specific options
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Allow frontend origins
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
+
 app.use(express.json());
+
+// Add request logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -87,10 +102,16 @@ async function extractWebpageContent(url) {
 // Start conversation with a webpage
 app.post('/api/start-conversation', async (req, res) => {
     try {
+        console.log('Received start-conversation request:', req.body);
         const { url } = req.body;
         
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
         // Extract webpage content
         const webpageData = await extractWebpageContent(url);
+        console.log('Successfully extracted webpage content');
         
         // Create new thread for this webpage
         const thread = await openai.beta.threads.create({
@@ -106,6 +127,8 @@ Content: ${webpageData.content.substring(0, 15000)}` // Limit content size
             ]
         });
         
+        console.log('Created new thread:', thread.id);
+        
         res.json({
             threadId: thread.id,
             title: webpageData.title,
@@ -113,7 +136,11 @@ Content: ${webpageData.content.substring(0, 15000)}` // Limit content size
         });
         
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error in start-conversation:', error);
+        res.status(500).json({ 
+            error: error.message,
+            details: error.response?.data || error.stack
+        });
     }
 });
 
@@ -218,10 +245,21 @@ app.get('/api/conversation/:threadId', async (req, res) => {
     }
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({
+        error: 'Internal server error',
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+});
+
 // Start server and initialize assistant
 const PORT = process.env.PORT || 3002;
 
 app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
+    console.log('CORS enabled for:', ['http://localhost:3000', 'http://127.0.0.1:3000']);
     await initializeAssistant(); // Initialize after server starts
 });

@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AudioPlayer from '../components/AudioPlayer';
 
 interface ArticleSection {
   id: number;
   content: string;
   title: string;
+}
+
+interface Question {
+  id: number;
+  question: string;
+  answer: string;
+  timestamp: number;
 }
 
 // Add Web Speech API type definitions
@@ -39,6 +46,7 @@ interface Window {
 }
 
 const API_BASE_URL = 'http://localhost:3002/api';
+const sectionsPerPage = 5;
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -82,19 +90,19 @@ export default function Home() {
   useEffect(() => {
     // Initialize speech recognition
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition;
+      const SpeechRecognition = window.webkitSpeechRecognition as new () => SpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = 'en-US';
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         setQuestion(transcript);
         setIsListening(false);
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: SpeechRecognitionError) => {
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
       };
@@ -125,6 +133,8 @@ export default function Home() {
     setCurrentAudio(null);
 
     try {
+      console.log('Starting conversation with URL:', url);
+      
       // Start conversation with the URL
       const startResponse = await fetch(`${API_BASE_URL}/start-conversation`, {
         method: 'POST',
@@ -135,13 +145,16 @@ export default function Home() {
       });
 
       if (!startResponse.ok) {
-        throw new Error('Failed to start conversation');
+        const errorData = await startResponse.json();
+        throw new Error(errorData.error || 'Failed to start conversation');
       }
 
       const startData = await startResponse.json();
+      console.log('Conversation started:', startData);
       setThreadId(startData.threadId);
       
       // Get initial sections
+      console.log('Fetching article sections...');
       const sectionsResponse = await fetch(`${API_BASE_URL}/process-article`, {
         method: 'POST',
         headers: {
@@ -151,12 +164,15 @@ export default function Home() {
       });
 
       if (!sectionsResponse.ok) {
-        throw new Error('Failed to process article');
+        const errorData = await sectionsResponse.json();
+        throw new Error(errorData.error || 'Failed to process article');
       }
 
       const sectionsData = await sectionsResponse.json();
+      console.log('Sections received:', sectionsData);
       setSections(sectionsData.sections);
     } catch (err) {
+      console.error('Error in handleSubmit:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
@@ -173,6 +189,7 @@ export default function Home() {
     setCurrentAnswer(null);
 
     try {
+      console.log('Asking question:', question);
       const response = await fetch(`${API_BASE_URL}/ask-question`, {
         method: 'POST',
         headers: {
@@ -185,16 +202,19 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get answer');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get answer');
       }
 
       const data = await response.json();
+      console.log('Received answer:', data);
       setCurrentAnswer(data.answer);
       if (data.audio) {
         setCurrentAudio(data.audio);
       }
       setQuestion('');
     } catch (err) {
+      console.error('Error in handleAskQuestion:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
@@ -290,6 +310,7 @@ export default function Home() {
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Ask a question about the article"
                 className="flex-1 p-2 border border-neutral-700 rounded bg-neutral-800 text-neutral-50 placeholder-neutral-400 focus:outline-none focus:border-neutral-600"
+                ref={questionInputRef}
               />
               <button
                 type="button"
@@ -335,7 +356,7 @@ export default function Home() {
         {currentAudio && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4 text-neutral-50">Audio Response</h2>
-            <AudioPlayer audioBase64={currentAudio} autoPlay={true} />
+            <AudioPlayer audioData={currentAudio} />
           </div>
         )}
 
@@ -348,8 +369,7 @@ export default function Home() {
                 <div
                   key={section.id}
                   id={`section-${section.id}`}
-                  className={`p-4 border border-neutral-700 rounded bg-neutral-800 hover:bg-neutral-750 cursor-pointer transition-colors flex gap-4 focus:outline-none focus:ring-2 focus:ring-neutral-50 ${selectedSection?.id === section.id ? 'ring-2 ring-neutral-50' : ''
-                    }`}
+                  className={`p-4 border border-neutral-700 rounded bg-neutral-800 hover:bg-neutral-750 cursor-pointer transition-colors flex gap-4 focus:outline-none focus:ring-2 focus:ring-neutral-50 ${selectedSection?.id === section.id ? 'ring-2 ring-neutral-50' : ''}`}
                   tabIndex={0}
                   onClick={() => {
                     setSelectedSection(section);
@@ -377,7 +397,7 @@ export default function Home() {
                     <h3 className="font-medium mb-2 text-neutral-50">{section.title}</h3>
                     <p className="text-neutral-300">{section.content}</p>
                   </div>
-                </article>
+                </div>
               ))}
 
             {currentPage < Math.ceil(sections.length / 4) && (

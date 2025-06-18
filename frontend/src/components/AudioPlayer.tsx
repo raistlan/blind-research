@@ -1,40 +1,39 @@
 import React, { useEffect, useRef } from 'react';
 
 interface AudioPlayerProps {
-    audioBase64: string;
-    autoPlay?: boolean;
+    audioData: string;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioBase64, autoPlay = false }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData }) => {
     const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
-        if (audioBase64 && audioRef.current) {
-            // Convert base64 to blob URL
-            const byteCharacters = atob(audioBase64);
+        if (audioRef.current && audioData) {
+            // Convert base64 to blob
+            const byteCharacters = atob(audioData);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
                 byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
             const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'audio/mpeg' });
-            const url = URL.createObjectURL(blob);
-
-            // Set audio source
-            audioRef.current.src = url;
+            const blob = new Blob([byteArray], { type: 'audio/mp3' });
+            
+            // Create object URL and set as audio source
+            const audioUrl = URL.createObjectURL(blob);
+            audioRef.current.src = audioUrl;
 
             // Cleanup
-            return () => URL.revokeObjectURL(url);
+            return () => URL.revokeObjectURL(audioUrl);
         }
-    }, [audioBase64]);
+    }, [audioData]);
 
     return (
         <div className="mt-4">
             <audio
                 ref={audioRef}
                 controls
-                autoPlay={autoPlay}
                 className="w-full"
+                controlsList="nodownload"
             >
                 Your browser does not support the audio element.
             </audio>
