@@ -199,6 +199,25 @@ export default function AnalyzePage() {
         }
     };
 
+    const speakAnswer = (text: string) => {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // Get available voices and set a preferred voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(voice => voice.name.includes('English'));
+        if (preferredVoice) {
+            utterance.voice = preferredVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+    };
+
     return (
         <main className="min-h-screen p-8 bg-neutral-900">
             <div className="max-w-4xl mx-auto">
@@ -368,8 +387,17 @@ export default function AnalyzePage() {
                                     <div className="mb-2">
                                         <h3 className="font-medium text-neutral-50">Q: {qa.question}</h3>
                                     </div>
-                                    <div>
-                                        <p className="text-neutral-300">A: {qa.answer}</p>
+                                    <div className="flex items-start gap-4">
+                                        <p className="text-neutral-300 flex-1">A: {qa.answer}</p>
+                                        <button
+                                            onClick={() => speakAnswer(qa.answer)}
+                                            className="p-2 text-neutral-50 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-50 rounded"
+                                            aria-label="Read answer aloud"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9v6h4l5 5V4l-5 5H9z" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </article>
                             ))}
