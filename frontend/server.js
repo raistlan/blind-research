@@ -12,6 +12,11 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+// ElevenLabs configuration
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+const ELEVENLABS_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Default voice ID (Rachel)
+const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
+
 let assistantId = null;
 
 async function initializeAssistant() {
@@ -19,7 +24,7 @@ async function initializeAssistant() {
         const assistant = await openai.beta.assistants.create({
             name: "Website Assistant",
             instructions: "You are a helpful assistant that answers questions about webpage content.",
-            model: "gpt-4-turbo-preview",
+            model: "gpt-4.1-mini",
             tools: []
         });
         assistantId = assistant.id;
@@ -151,10 +156,38 @@ app.post('/api/ask-question', async (req, res) => {
             const lastMessage = messages.data[0];
             console.log('Last message:', lastMessage);
             
-            res.json({
-                answer: lastMessage.content[0].text.value,
-                threadId: threadId
-            });
+            const answer = lastMessage.content[0].text.value;
+            console.log('Answer:', answer);
+            
+            try {
+                // Convert answer to speech using OpenAI TTS
+                console.log('Converting answer to speech...');
+                const audioResponse = await openai.audio.speech.create({
+                    model: "tts-1",
+                    voice: "alloy",
+                    input: answer,
+                    response_format: "mp3"
+                });
+                
+                // Convert the response to base64
+                const audioBuffer = await audioResponse.arrayBuffer();
+                const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+                console.log('Audio converted to base64, length:', audioBase64.length);
+                
+                res.json({
+                    answer: answer,
+                    audio: audioBase64,
+                    threadId: threadId
+                });
+            } catch (audioError) {
+                console.error('Error converting to speech:', audioError);
+                // Still return the text answer even if audio conversion fails
+                res.json({
+                    answer: answer,
+                    error: 'Failed to convert to speech: ' + audioError.message,
+                    threadId: threadId
+                });
+            }
         } else {
             console.error('Run failed with status:', runStatus.status);
             res.status(500).json({ error: 'Assistant run failed', status: runStatus.status });
@@ -186,7 +219,7 @@ app.get('/api/conversation/:threadId', async (req, res) => {
 });
 
 // Start server and initialize assistant
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 app.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
