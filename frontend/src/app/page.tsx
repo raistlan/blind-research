@@ -87,11 +87,11 @@ export default function Home() {
   const sectionsPerPage = 4;
 
   // Q&A state
-  const [threadId, setThreadId] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isAsking, setIsAsking] = useState(false);
   const [qaError, setQaError] = useState<string | null>(null);
+  const [selectedSection, setSelectedSection] = useState<ArticleSection | null>(null);
 
   const questionInputRef = useRef<HTMLInputElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -129,7 +129,7 @@ export default function Home() {
           announceToScreenReader(`Selected section: ${section.title}`);
 
           // Generate a question about the section
-          const question = `Can you tell me more about "${section.title}"?`;
+          const question = `Can you tell me more about the section that relates to "${section.title}"?`;
           setCurrentQuestion(question);
 
           // Focus the question input after a short delay
@@ -190,8 +190,8 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setCurrentPage(1); // Reset to first page when new search is made
-    setThreadId(null); // Reset thread ID for new article
     setQuestions([]); // Clear previous questions
+    setSelectedSection(null); // Reset selected section
 
     try {
       const response = await fetch('/api/process-article', {
@@ -208,7 +208,6 @@ export default function Home() {
 
       const data = await response.json();
       setSections(data.sections);
-      setThreadId(data.threadId); // Store thread ID for Q&A
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -218,19 +217,24 @@ export default function Home() {
 
   const handleQuestionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!threadId || !currentQuestion.trim()) return;
+    if (!currentQuestion.trim()) return;
 
     setIsAsking(true);
     setQaError(null);
 
     try {
+      // If a specific section is selected, use its content as context
+      const context = selectedSection
+        ? `Section Title: ${selectedSection.title}\nSection Content: ${selectedSection.content}`
+        : sections.map(section => `Section Title: ${section.title}\nSection Content: ${section.content}`).join('\n\n');
+
       const response = await fetch('/api/process-article', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          threadId,
+          context,
           question: currentQuestion.trim(),
         }),
       });
@@ -250,6 +254,7 @@ export default function Home() {
       }]);
 
       setCurrentQuestion(''); // Clear input
+      setSelectedSection(null); // Reset selected section after question is asked
     } catch (err) {
       setQaError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -310,17 +315,20 @@ export default function Home() {
                 <article
                   key={section.id}
                   id={`section-${section.id}`}
-                  className="p-4 border border-neutral-700 rounded bg-neutral-800 hover:bg-neutral-750 cursor-pointer transition-colors flex gap-4 focus:outline-none focus:ring-2 focus:ring-neutral-50"
+                  className={`p-4 border border-neutral-700 rounded bg-neutral-800 hover:bg-neutral-750 cursor-pointer transition-colors flex gap-4 focus:outline-none focus:ring-2 focus:ring-neutral-50 ${selectedSection?.id === section.id ? 'ring-2 ring-neutral-50' : ''
+                    }`}
                   tabIndex={0}
                   onClick={() => {
-                    const question = `Can you tell me more about "${section.title}"?`;
+                    setSelectedSection(section);
+                    const question = `Can you tell me more about the section that relates to "${section.title}"?`;
                     setCurrentQuestion(question);
                     questionInputRef.current?.focus();
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      const question = `Can you tell me more about "${section.title}"?`;
+                      setSelectedSection(section);
+                      const question = `Can you tell me more about the section that relates to "${section.title}"?`;
                       setCurrentQuestion(question);
                       questionInputRef.current?.focus();
                     }
@@ -348,7 +356,7 @@ export default function Home() {
                   className="px-4 py-2 bg-neutral-800 text-neutral-50 rounded hover:bg-neutral-700 disabled:bg-neutral-900 disabled:text-neutral-600 transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-50"
                   aria-label="Previous page"
                 >
-                  Previous Page
+                  Previous page
                 </button>
                 <button
                   onClick={() => setCurrentPage(prev => prev + 1)}
@@ -356,7 +364,7 @@ export default function Home() {
                   className="px-4 py-2 bg-neutral-800 text-neutral-50 rounded hover:bg-neutral-700 disabled:bg-neutral-900 disabled:text-neutral-600 transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-50"
                   aria-label="Next page"
                 >
-                  Next Page
+                  Next page
                 </button>
               </div>
               <div
@@ -369,9 +377,13 @@ export default function Home() {
           </section>
         )}
 
-        {threadId && (
+        {sections.length > 0 && (
           <section aria-labelledby="qa-title" className="mt-8">
-            <h2 id="qa-title" className="text-2xl font-semibold mb-4 text-neutral-50">Ask questions about the article</h2>
+            <h2 id="qa-title" className="text-2xl font-semibold mb-4 text-neutral-50">
+              {selectedSection
+                ? `Ask questions about: ${selectedSection.title}`
+                : 'Ask questions about the article'}
+            </h2>
 
             <form onSubmit={handleQuestionSubmit} className="mb-4">
               <div className="flex gap-4">
@@ -382,7 +394,9 @@ export default function Home() {
                   type="text"
                   value={currentQuestion}
                   onChange={(e) => setCurrentQuestion(e.target.value)}
-                  placeholder="Type your question here..."
+                  placeholder={selectedSection
+                    ? `Ask a question about "${selectedSection.title}"...`
+                    : "Type your question here..."}
                   className="flex-1 p-2 border border-neutral-700 rounded bg-neutral-800 text-neutral-50 placeholder-neutral-400 focus:outline-none focus:border-neutral-600"
                   disabled={isAsking}
                   aria-label="Question input"
