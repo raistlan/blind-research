@@ -84,7 +84,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showHelp, setShowHelp] = useState(false);
   const sectionsPerPage = 4;
 
   // Q&A state
@@ -96,7 +95,6 @@ export default function Home() {
 
   const questionInputRef = useRef<HTMLInputElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
-  const helpModalRef = useRef<HTMLDivElement>(null);
 
   // Get visible sections for current page
   const getVisibleSections = () => {
@@ -155,17 +153,6 @@ export default function Home() {
     };
 
     const handleGlobalKeys = (event: KeyboardEvent) => {
-      // Show help modal
-      if (event.key === '?' || event.key === 'h') {
-        event.preventDefault();
-        setShowHelp(prev => !prev);
-      }
-
-      // Close help modal with Escape
-      if (event.key === 'Escape' && showHelp) {
-        setShowHelp(false);
-      }
-
       // Jump to first/last page
       if (event.key === 'Home') {
         setCurrentPage(1);
@@ -196,7 +183,7 @@ export default function Home() {
       window.removeEventListener('keydown', handleKeyPress);
       window.removeEventListener('keydown', handleGlobalKeys);
     };
-  }, [currentPage, sections.length, sections, showHelp, currentQuestion, url]);
+  }, [currentPage, sections.length, sections, currentQuestion, url]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,36 +424,6 @@ export default function Home() {
               ))}
             </div>
           </section>
-        )}
-
-        {showHelp && (
-          <div
-            ref={helpModalRef}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-labelledby="help-title"
-            aria-modal="true"
-          >
-            <div className="bg-neutral-800 p-6 rounded-lg max-w-md">
-              <h2 id="help-title" className="text-xl font-bold mb-4 text-neutral-50">Keyboard Shortcuts</h2>
-              <ul className="space-y-2 text-neutral-300" role="list">
-                <li><kbd>1-4</kbd> - Navigate to sections on current page</li>
-                <li><kbd>0</kbd> - Previous page</li>
-                <li><kbd>9</kbd> - Next page</li>
-                <li><kbd>Home</kbd> - First page</li>
-                <li><kbd>End</kbd> - Last page</li>
-                <li><kbd>?</kbd> or <kbd>h</kbd> - Show/hide this help</li>
-                <li><kbd>Esc</kbd> - Clear forms or close modals</li>
-              </ul>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="mt-4 px-4 py-2 bg-neutral-50 text-neutral-900 rounded hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-50"
-                aria-label="Close help"
-              >
-                Close
-              </button>
-            </div>
-          </div>
         )}
       </div>
     </main>
