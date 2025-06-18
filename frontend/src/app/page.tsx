@@ -134,7 +134,7 @@ export default function Home() {
 
     try {
       console.log('Starting conversation with URL:', url);
-      
+
       // Start conversation with the URL
       const startResponse = await fetch(`${API_BASE_URL}/start-conversation`, {
         method: 'POST',
@@ -152,7 +152,7 @@ export default function Home() {
       const startData = await startResponse.json();
       console.log('Conversation started:', startData);
       setThreadId(startData.threadId);
-      
+
       // Get initial sections
       console.log('Fetching article sections...');
       const sectionsResponse = await fetch(`${API_BASE_URL}/process-article`, {
@@ -315,11 +315,10 @@ export default function Home() {
               <button
                 type="button"
                 onClick={isListening ? stopListening : startListening}
-                className={`px-4 py-2 rounded transition-colors ${
-                  isListening 
-                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                className={`px-4 py-2 rounded transition-colors ${isListening
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
+                  }`}
               >
                 {isListening ? 'Stop' : '🎤'}
               </button>
